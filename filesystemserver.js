@@ -1,6 +1,7 @@
 var WisdmSocket=require('../filesystemclient/wisdmsocket').WisdmSocket;
 var wisdmconfig=require('./wisdmconfig').wisdmconfig;
 var DATABASE=require('../filesystemclient/databasemanager').DATABASE;
+var FileSystemConnection=require('./filesystemconnection').FileSystemConnection;
 
 function FileSystemServer() {
 	var that=this;
@@ -62,15 +63,6 @@ function FileSystemServer() {
 							client_id=msg.client_id;
 							file_system_connection=new FileSystemConnection();
 							file_system_connection.setWisdmSocket(wsocket);
-							file_system_connection.setClientId(client_id);
-							file_system_connection.setOwner(msg.owner);
-							file_system_connection.setFileSystemAccess(msg.access||{error:'Undefined access'});
-							file_system_connection.onSignal(function(signal) {
-								var ppp={client_id:client_id};
-								m_signal_handlers.forEach(function(handler) {
-									handler(ppp,signal);
-								});
-							});
 							
 							m_file_system_connections[client_id]=file_system_connection;
 							file_system_connection.initialize();
@@ -232,129 +224,6 @@ function FileSystemServer() {
 		setTimeout(periodic_cleanup,10000);
 	}
 	periodic_cleanup();
-}
-
-function FileSystemConnection() {
-	var that=this;
-	
-	this.setWisdmSocket=function(wsocket) {m_wsocket=wsocket;};
-	this.initialize=function() {_initialize();};
-	this.processRequest=function(request,callback) {_processRequest(request,callback);};
-	this.isConnected=function() {return _isConnected();};
-	this.setClientId=function(id) {m_client_id=id;};
-	this.setOwner=function(owner) {m_owner=owner;};
-	this.setFileSystemAccess=function(access) {m_file_system_access=access;};
-	this.clientId=function() {return m_client_id;};
-	this.owner=function() {return m_owner;};
-	this.fileSystemAccess=function() {return m_file_system_access;};
-	this.onSignal=function(handler) {m_signal_handlers.push(handler);};
-	
-	var m_wsocket=null;
-	var m_response_waiters={};
-	var m_client_id='';
-	var m_owner='';
-	var m_file_system_access={};
-	var m_signal_handlers=[];
-	
-	function _initialize() {
-		if (!m_wsocket) return;
-		m_wsocket.sendMessage({command:'connection_accepted'});
-		m_wsocket.onMessage(function(msg) {
-			process_message_from_file_system(msg);
-		});
-	}
-	
-	function checkRequestAllowed(request,callback) {
-		//finish
-		var valid_file_system_commands=[
-			'checkFileSystemStatus',
-			'getFileChecksum','getFileText','setFileText','getFileData','setFileData','getFileBytes',
-			'readDir','removeFile',
-			'updateFileSystemSource',
-			'getFileSystemAccess','setFileSystemAccess'
-		];
-		
-		var command=request.command||'';
-		var auth_info=request.auth_info||{};
-		if (!auth_info.permissions) auth_info.permissions={};
-		if (valid_file_system_commands.indexOf(command)<0) {
-			callback({allowed:false,reason:'unknown',message:'Unknown command ***: '+command});
-			return;
-		}
-		
-		if (command=='updateFileSystemSource') {
-			if ((auth_info||{}).user_id!='magland') {
-				callback({allowed:false,reason:'unauthorized',message:'You are not authorized to update file system source.'});
-				return;
-			}
-		}
-		callback({allowed:true});
-		
-	}
-	
-	function _processRequest(request,callback) {
-		checkRequestAllowed(request,function(tmp00) {
-			if (tmp00.allowed) {
-				var command=request.command||'';
-				if (command=='checkFileSystemStatus') {
-					callback({success:true,status:'found'});
-				}
-				else {
-					send_request_to_file_system(request,callback);
-				}
-			}
-			else {
-				if (tmp00.reason=='unauthorized') {
-					callback({success:false,error:tmp00.message,authorization_error:true});
-				}
-				else {
-					callback({success:false,error:tmp00.message});
-				}
-			}
-		});
-	}
-	function _isConnected() {
-		if (!m_wsocket) return;
-		return m_wsocket.isConnected();
-	}
-	function make_random_id(numchars) {
-		if (!numchars) numchars=10;
-		var text = "";
-		var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-		for( var i=0; i < numchars; i++ ) text += possible.charAt(Math.floor(Math.random() * possible.length));	
-		return text;
-	} 
-	function send_request_to_file_system(request,callback) {
-		request.server_request_id=make_random_id(8);
-		if (m_wsocket) {
-			m_wsocket.sendMessage(request);
-			m_response_waiters[request.server_request_id]=function(tmpCC) {
-				if (tmpCC.success) {
-					if ((request.command||'')=='setFileSystemAccess') {
-						m_file_system_access=request.access||{error:'Unexpected problem 343'};
-					}
-				}
-				callback(tmpCC);
-			};
-		}
-		else {
-			console.error('Could not send request to file system... m_wsocket is null');
-		}
-	}
-	
-	function process_message_from_file_system(msg,callback) {
-		if (msg.server_request_id) {
-			if (msg.server_request_id in m_response_waiters) {
-				m_response_waiters[msg.server_request_id](msg);
-				delete m_response_waiters[msg.server_request_id];
-			}
-		}
-		else if ((msg.command||'')=='signal') {
-			m_signal_handlers.forEach(function(handler) {
-				handler(msg);
-			});
-		}
-	}
 }
 
 exports.FileSystemServer=FileSystemServer;

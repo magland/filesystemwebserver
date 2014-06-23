@@ -3,13 +3,12 @@
 var wisdmconfig={};
 
 wisdmconfig.filesystemwebserver={
-	listen_port:8004,
+	listen_port:8003,
 	www_path:'/home/magland/wisdm/www/filesystemwebserver',
-	wisdmserver_url:'http://localhost:8000'
 };
 
 wisdmconfig.filesystemserver={
-	listen_port:8083
+	listen_port:8004
 };
 
 exports.wisdmconfig=wisdmconfig;
