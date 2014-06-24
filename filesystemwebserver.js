@@ -49,6 +49,11 @@ http.createServer(function(REQ, RESP) {
 				send_json_response(resp);
 			});
 		}
+		if (url_parts.pathname=='/readDir') {
+			read_dir(url_parts.query,function(resp) {
+				send_json_response(resp);
+			});
+		}
 		else {
 			send_json_response({success:false,error:'Unrecognized path: '+url_parts.pathname});
 			return;
@@ -71,6 +76,14 @@ http.createServer(function(REQ, RESP) {
 			return;
 		}
 		CC.processRequest({command:'getFileChecksum',path:params.path},callback);
+	}
+	function read_dir(params,callback) {
+		var CC=FSSERVER.findFileSystemConnection(params.fsname);
+		if (!CC) {
+			callback({success:false,error:'Unable to find file system: '+params.fsname});
+			return;
+		}
+		CC.processRequest({command:'readDir',path:params.path},callback);
 	}
 	function set_file_checksum(params,callback) {
 		var CC=FSSERVER.findFileSystemConnection(params.fsname);
