@@ -49,7 +49,7 @@ http.createServer(function(REQ, RESP) {
 				send_json_response(resp);
 			});
 		}
-		if (url_parts.pathname=='/readDir') {
+		else if (url_parts.pathname=='/readDir') {
 			read_dir(url_parts.query,function(resp) {
 				send_json_response(resp);
 			});
