@@ -21,7 +21,7 @@ function FileSystemConnection() {
 	
 	function checkRequestAllowed(request,callback) {
 		var valid_file_system_commands=[
-			'getFileChecksum','setFileChecksum'
+			'getFileChecksum','setFileChecksum','readDir'
 		];
 		
 		var command=request.command||'';
